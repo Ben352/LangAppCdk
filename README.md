@@ -12,3 +12,10 @@ The `cdk.json` file tells the CDK Toolkit how to execute your app.
 * `npx cdk deploy`  deploy this stack to your default AWS account/region
 * `npx cdk diff`    compare deployed stack with current state
 * `npx cdk synth`   emits the synthesized CloudFormation template
+
+
+## How To run
+
+- `cdk deploy` if not deployed or if you made changes
+- check the ApiStack.ApiGatewayUrl  in the stdout
+- `curl -H "Authorization: Bearer superSecretKetUntilISetUpJWT" https://gzvlekynil.execute-api.eu-central-1.amazonaws.com/conversations`

@@ -36,6 +36,17 @@ export class ApiStack extends cdk.Stack {
 
     props.conversationsTable.grantReadData(listConversationsFunc);
 
+
+    const requestAuthorizer = new authorizers.HttpLambdaAuthorizer(
+      'LangChatRequestAuthorizer',
+      props.authorizerFn,
+      {
+        responseTypes: [authorizers.HttpLambdaResponseType.SIMPLE],
+        identitySource: ['$request.header.Authorization'],
+      }
+    );
+
+
     //To do: add authorizer func
 
     this.httpApi = new apigwv2.HttpApi(this, 'LangChatHttpApi', {
@@ -50,7 +61,7 @@ export class ApiStack extends cdk.Stack {
         'ListConversationsIntegration',
         listConversationsFunc
       ),
-      // authorizer: ,
+       authorizer: requestAuthorizer,
     });
 
     new cdk.CfnOutput(this, "ApiGatewayUrl",{
