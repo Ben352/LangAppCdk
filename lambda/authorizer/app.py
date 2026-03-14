@@ -8,5 +8,8 @@ def handler(event, context):
         }
 
     return {
-        "isAuthorized": True
+        "isAuthorized": True,
+        "context": {
+            "userId": "123"
+        }
     }
