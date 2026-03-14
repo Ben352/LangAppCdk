@@ -27,7 +27,7 @@ export class ApiStack extends cdk.Stack {
     };
 
     const listConversationsFunc = new PythonFunction(this, 'ListConversationsFunction', {
-      entry: path.join(__dirname, '../lambda/list_conversations'),
+      entry: path.join(__dirname, '../lambda/listConversations'),
       index: 'app.py',
       handler: 'handler',
       runtime: lambda.Runtime.PYTHON_3_12,
@@ -40,6 +40,46 @@ export class ApiStack extends cdk.Stack {
     props.conversationsTable.grantReadData(listConversationsFunc);
 
 
+    const getConversationFunc = new PythonFunction(this, 'GetConversationFunction', {
+      entry: path.join(__dirname, '../lambda/getConversation'),
+      index: 'app.py',
+      handler: 'handler',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      environment: commonEnv,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    props.conversationsTable.grantReadData(getConversationFunc);
+
+    const sendMessageFunc = new PythonFunction(this, 'SendMessageFunction', {
+      entry: path.join(__dirname, '../lambda/sendMessage'),
+      index: 'app.py',
+      handler: 'handler',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      environment: commonEnv,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    props.conversationsTable.grantReadWriteData(sendMessageFunc);
+
+    const createConversationFunc = new PythonFunction(this, 'CreateConversationFunction', {
+      entry: path.join(__dirname, '../lambda/createConversation'),
+      index: 'app.py',
+      handler: 'handler',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      environment: commonEnv,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    props.conversationsTable.grantReadWriteData(createConversationFunc);
+
+
     const requestAuthorizer = new authorizers.HttpLambdaAuthorizer(
       'LangChatRequestAuthorizer',
       props.authorizerFn,
@@ -48,9 +88,6 @@ export class ApiStack extends cdk.Stack {
         identitySource: ['$request.header.Authorization'],
       }
     );
-
-
-    //To do: add authorizer func
 
     this.httpApi = new apigwv2.HttpApi(this, 'LangChatHttpApi', {
       apiName: 'lang-chat-http-api',
@@ -63,6 +100,36 @@ export class ApiStack extends cdk.Stack {
       integration: new integrations.HttpLambdaIntegration(
         'ListConversationsIntegration',
         listConversationsFunc
+      ),
+       authorizer: requestAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/conversations/{conversationId}',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'GetConversationIntegration',
+        getConversationFunc
+      ),
+       authorizer: requestAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/conversations',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'CreateConversationIntegration',
+        createConversationFunc
+      ),
+       authorizer: requestAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/conversations/{conversationId}/messages',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'SendMessageIntegration',
+        sendMessageFunc
       ),
        authorizer: requestAuthorizer,
     });
