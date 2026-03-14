@@ -8,7 +8,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 export class AuthStack extends cdk.Stack {
     public readonly authorizerFunc: lambda.IFunction;
 
-    constructor(scope: Construct, id: string, props?: cdk.StackProps){
+    constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
 
         this.authorizerFunc = new PythonFunction(this, "JWTAuthorizerFunction", {

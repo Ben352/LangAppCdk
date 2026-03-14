@@ -9,4 +9,4 @@ def handler(event, context):
             "createdAt": "2026-03-14T15:43:01Z",
             "claims": claims
         }
-        }
+    }
