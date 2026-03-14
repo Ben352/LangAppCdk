@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 import * as path from 'path';
+import * as logs from 'aws-cdk-lib/aws-logs';
 
 export class AuthStack extends cdk.Stack {
     public readonly authorizerFunc: lambda.IFunction;
@@ -16,7 +17,9 @@ export class AuthStack extends cdk.Stack {
             handler: "handler",
             runtime: lambda.Runtime.PYTHON_3_12,
             timeout: cdk.Duration.seconds(5),
-            memorySize: 256
+            memorySize: 256,
+            logRetention: logs.RetentionDays.ONE_WEEK,
         })
+
     }
 }

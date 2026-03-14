@@ -7,6 +7,8 @@ import * as path from 'path';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import * as logs from 'aws-cdk-lib/aws-logs';
+
 
 export interface ApiStackProps extends cdk.StackProps {
   conversationsTable: dynamodb.ITable;
@@ -32,6 +34,7 @@ export class ApiStack extends cdk.Stack {
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
       environment: commonEnv,
+      logRetention: logs.RetentionDays.ONE_WEEK,
     });
 
     props.conversationsTable.grantReadData(listConversationsFunc);
