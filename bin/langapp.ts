@@ -16,5 +16,6 @@ const authStack = new AuthStack(app, "AuthStack", { env });
 const apiStack = new ApiStack(app, "ApiStack", {
   env,
   conversationsTable: dataStack.conversationsTable,
+  userMetaDataTable: dataStack.userMetaDataTable,
   authorizerFn: authStack.authorizerFunc
 });

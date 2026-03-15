@@ -12,6 +12,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 
 export interface ApiStackProps extends cdk.StackProps {
     conversationsTable: dynamodb.ITable;
+    userMetaDataTable: dynamodb.ITable;
     authorizerFn: lambda.IFunction;
 }
 
@@ -65,6 +66,7 @@ export class ApiStack extends cdk.Stack {
         });
 
         props.conversationsTable.grantReadWriteData(sendMessageFunc);
+        props.userMetaDataTable.grantReadData(sendMessageFunc);
 
         const createConversationFunc = new PythonFunction(this, 'CreateConversationFunction', {
             entry: path.join(__dirname, '../lambda/createConversation'),
@@ -78,6 +80,7 @@ export class ApiStack extends cdk.Stack {
         });
 
         props.conversationsTable.grantReadWriteData(createConversationFunc);
+        props.userMetaDataTable.grantReadData(createConversationFunc);
 
 
         const requestAuthorizer = new authorizers.HttpLambdaAuthorizer(
