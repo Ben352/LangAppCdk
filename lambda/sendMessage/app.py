@@ -2,7 +2,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
-
+from boto3.dynamodb.conditions import Key
 import boto3
 from botocore.exceptions import ClientError
 
@@ -169,3 +169,29 @@ def handler(event, context):
             "message": "Internal server error",
             "error": str(e)
         })
+
+
+def get_last_messages(conversation_id: str, limit: int = 4):
+    result = table.query(
+        KeyConditionExpression=(
+            Key("pk").eq(f"CONVERSATION#{conversation_id}") &
+            Key("sk").begins_with("MESSAGE#")
+        ),
+        ScanIndexForward=False,  # newest first
+        Limit=limit
+    )
+
+    items = result.get("Items", [])
+
+    # Reverse so it's oldest → newest
+    items.reverse()
+
+    return [
+        {
+            "messageId": item["messageId"],
+            "role": item["role"],
+            "content": item["content"],
+            "createdAt": item["createdAt"]
+        }
+        for item in items
+    ]
