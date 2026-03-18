@@ -75,6 +75,13 @@ curl -X POST \
   $API_URL/conversations/$CONVERSATION_ID/messages
 ```
 
+## Testing
+
+Tests can be run with:
+```
+source venv/bin/activate  
+pytest tests -v
+```
 
 
 ## Other commands

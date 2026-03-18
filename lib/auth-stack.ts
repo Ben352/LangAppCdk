@@ -12,7 +12,7 @@ export class AuthStack extends cdk.Stack {
         super(scope, id, props);
 
         this.authorizerFunc = new PythonFunction(this, "JWTAuthorizerFunction", {
-            entry: path.join(__dirname, "../lambda/authorizer"),
+            entry: path.join(__dirname, "../lambda_functions/authorizer"),
             index: "app.py",
             handler: "handler",
             runtime: lambda.Runtime.PYTHON_3_12,

@@ -28,7 +28,7 @@ export class ApiStack extends cdk.Stack {
         };
 
         const listConversationsFunc = new PythonFunction(this, 'ListConversationsFunction', {
-            entry: path.join(__dirname, '../lambda/listConversations'),
+            entry: path.join(__dirname, '../lambda_functions/listConversations'),
             index: 'app.py',
             handler: 'handler',
             runtime: lambda.Runtime.PYTHON_3_12,
@@ -42,7 +42,7 @@ export class ApiStack extends cdk.Stack {
 
 
         const getConversationFunc = new PythonFunction(this, 'GetConversationFunction', {
-            entry: path.join(__dirname, '../lambda/getConversation'),
+            entry: path.join(__dirname, '../lambda_functions/getConversation'),
             index: 'app.py',
             handler: 'handler',
             runtime: lambda.Runtime.PYTHON_3_12,
@@ -55,7 +55,7 @@ export class ApiStack extends cdk.Stack {
         props.conversationsTable.grantReadData(getConversationFunc);
 
         const sendMessageFunc = new PythonFunction(this, 'SendMessageFunction', {
-            entry: path.join(__dirname, '../lambda/sendMessage'),
+            entry: path.join(__dirname, '../lambda_functions/sendMessage'),
             index: 'app.py',
             handler: 'handler',
             runtime: lambda.Runtime.PYTHON_3_12,
@@ -69,7 +69,7 @@ export class ApiStack extends cdk.Stack {
         props.userMetaDataTable.grantReadData(sendMessageFunc);
 
         const createConversationFunc = new PythonFunction(this, 'CreateConversationFunction', {
-            entry: path.join(__dirname, '../lambda/createConversation'),
+            entry: path.join(__dirname, '../lambda_functions/createConversation'),
             index: 'app.py',
             handler: 'handler',
             runtime: lambda.Runtime.PYTHON_3_12,

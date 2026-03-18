@@ -1,8 +1,45 @@
+# -----------------------
+# Node / CDK
+# -----------------------
 *.js
 !jest.config.js
 *.d.ts
-node_modules
+node_modules/
 
-# CDK asset staging directory
 .cdk.staging
-cdk.out
+cdk.out/
+
+# -----------------------
+# Python
+# -----------------------
+venv/
+.env
+.env.*
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# pytest
+.pytest_cache/
+
+# coverage
+.coverage
+htmlcov/
+
+# -----------------------
+# Mac / system
+# -----------------------
+.DS_Store
+
+# -----------------------
+# IDEs
+# -----------------------
+.vscode/
+.idea/
+
+# -----------------------
+# Logs
+# -----------------------
+*.log
