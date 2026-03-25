@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from boto3.dynamodb.conditions import Key
 import boto3
 from botocore.exceptions import ClientError
-
+from lambda_functions.shared.personas import get_persona
 TABLE_NAME = os.environ["CONVERSATIONS_TABLE_NAME"]
 
 dynamodb = boto3.resource("dynamodb")
@@ -99,7 +99,10 @@ def handler(event, context):
         }
 
         table.put_item(Item=user_message_item)
+        persona_id = "italian-tutor"
+        persona = get_persona(persona_id)
 
+        print("Loaded persona:", persona)
         # 3. Simulate LLM response
         assistant_content = "Placeholder LLM Answer"
 
