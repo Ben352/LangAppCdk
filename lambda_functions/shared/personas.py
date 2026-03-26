@@ -1,7 +1,5 @@
 PERSONAS = {
     "italian-tutor": {
-        "provider": "openai",
-        "model": "gpt-4.1-mini",
         "system_prompt": "You are a helpful Italian tutor."
     }
 }

@@ -99,7 +99,7 @@ def handler(event, context):
         }
 
         table.put_item(Item=user_message_item)
-        persona_id = "italian-tutor"
+        persona_id = conversation_item["personaId"]
         persona = get_persona(persona_id)
 
         print("Loaded persona:", persona)
