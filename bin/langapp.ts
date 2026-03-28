@@ -3,6 +3,7 @@ import * as cdk from "aws-cdk-lib";
 import { DataStack } from "../lib/data-stack";
 import { AuthStack } from "../lib/auth-stack";
 import { ApiStack } from "../lib/api-stack";
+import { SecretStack } from "../lib/secretsStack";
 
 const app = new cdk.App();
 
@@ -13,9 +14,11 @@ const env = {
 
 const dataStack = new DataStack(app, "DataStack", { env });
 const authStack = new AuthStack(app, "AuthStack", { env });
+const secretStack = new SecretStack(app, "SecretStack", {env});
 const apiStack = new ApiStack(app, "ApiStack", {
   env,
   conversationsTable: dataStack.conversationsTable,
   userMetaDataTable: dataStack.userMetaDataTable,
-  authorizerFn: authStack.authorizerFunc
+  authorizerFn: authStack.authorizerFunc,
+  claudeSecret: secretStack.claudeSecret
 });
