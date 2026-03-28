@@ -8,12 +8,13 @@ import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as logs from 'aws-cdk-lib/aws-logs';
-
+import * as secretsManager from "aws-cdk-lib/aws-secretsmanager"
 
 export interface ApiStackProps extends cdk.StackProps {
     conversationsTable: dynamodb.ITable;
     userMetaDataTable: dynamodb.ITable;
     authorizerFn: lambda.IFunction;
+    claudeSecret: secretsManager.ISecret;
 }
 
 
@@ -64,6 +65,9 @@ export class ApiStack extends cdk.Stack {
             environment: commonEnv,
             logRetention: logs.RetentionDays.ONE_WEEK,
         });
+        props.claudeSecret.grantRead(sendMessageFunc);
+
+        sendMessageFunc.addEnvironment('ANTHROPIC_API_KEY', props.claudeSecret.secretArn);  
 
         props.conversationsTable.grantReadWriteData(sendMessageFunc);
         props.userMetaDataTable.grantReadData(sendMessageFunc);
@@ -95,6 +99,15 @@ export class ApiStack extends cdk.Stack {
         this.httpApi = new apigwv2.HttpApi(this, 'LangChatHttpApi', {
             apiName: 'lang-chat-http-api',
             createDefaultStage: true,
+            corsPreflight: {
+        allowOrigins: ["http://localhost:5173"],
+        allowHeaders: ["Authorization", "Content-Type"],
+        allowMethods: [
+        apigwv2.CorsHttpMethod.GET,
+        apigwv2.CorsHttpMethod.POST,
+        apigwv2.CorsHttpMethod.OPTIONS,
+    ],
+  },
         });
 
         this.httpApi.addRoutes({
