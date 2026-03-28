@@ -2,16 +2,25 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
-from boto3.dynamodb.conditions import Key
+
 import boto3
+from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
-from lambda_functions.shared.personas import get_persona
+
+from personas import get_persona
+from llm_client import generate_reply
+
 TABLE_NAME = os.environ["CONVERSATIONS_TABLE_NAME"]
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
+secrets_client = boto3.client("secretsmanager")
 
-## To do: - add validation using the metadata label
+
+def get_claude_api_key() -> str:
+    secret_id = os.environ["ANTHROPIC_API_KEY"]
+    response = secrets_client.get_secret_value(SecretId=secret_id)
+    return response["SecretString"]
 
 
 def response(status_code: int, body: dict) -> dict:
@@ -51,6 +60,30 @@ def get_body(event: dict) -> dict:
     return json.loads(raw_body)
 
 
+def get_last_messages(conversation_id: str, limit: int = 4):
+    result = table.query(
+        KeyConditionExpression=(
+            Key("pk").eq(f"CONVERSATION#{conversation_id}") &
+            Key("sk").begins_with("MESSAGE#")
+        ),
+        ScanIndexForward=False,
+        Limit=limit
+    )
+
+    items = result.get("Items", [])
+    items.reverse()
+
+    return [
+        {
+            "messageId": item["messageId"],
+            "role": item["role"],
+            "content": item["content"],
+            "createdAt": item["createdAt"]
+        }
+        for item in items
+    ]
+
+
 def handler(event, context):
     try:
         user_id = get_user_id(event)
@@ -67,7 +100,6 @@ def handler(event, context):
         if not content:
             return response(400, {"message": "content is required"})
 
-        # 1. Verify the conversation exists and belongs to the user
         conversation_pk = f"USER#{user_id}"
         conversation_sk = f"CONVERSATION#{conversation_id}"
 
@@ -82,7 +114,28 @@ def handler(event, context):
         if not conversation_item:
             return response(404, {"message": "Conversation not found"})
 
-        # 2. Create the user message
+        persona_id = conversation_item["personaId"]
+        persona = get_persona(persona_id)
+
+        last_messages = get_last_messages(conversation_id, limit=4)
+        api_key = get_claude_api_key()
+
+        llm_messages = [
+            *last_messages,
+            {"role": "user", "content": content},
+        ]
+
+        llm_result = generate_reply(
+            system_prompt=persona["system_prompt"],
+            messages=llm_messages,
+            api_key=api_key,
+            provider_model=persona.get("provider_model", "anthropic/claude-3-haiku-20240307"),
+            temperature=persona.get("temperature", 0.7),
+            max_tokens=persona.get("max_tokens", 300),
+        )
+
+        assistant_content = llm_result["content"]
+
         user_message_id = str(uuid.uuid4())
         user_created_at = now_iso()
 
@@ -99,14 +152,7 @@ def handler(event, context):
         }
 
         table.put_item(Item=user_message_item)
-        persona_id = conversation_item["personaId"]
-        persona = get_persona(persona_id)
 
-        print("Loaded persona:", persona)
-        # 3. Simulate LLM response
-        assistant_content = "Placeholder LLM Answer"
-
-        # 4. Create the assistant message
         assistant_message_id = str(uuid.uuid4())
         assistant_created_at = now_iso()
 
@@ -124,7 +170,6 @@ def handler(event, context):
 
         table.put_item(Item=assistant_message_item)
 
-        # 5. Update conversation metadata
         table.update_item(
             Key={
                 "pk": conversation_pk,
@@ -155,7 +200,8 @@ def handler(event, context):
                 "role": "assistant",
                 "content": assistant_content,
                 "createdAt": assistant_created_at
-            }
+            },
+            "usage": llm_result["usage"]
         })
 
     except ClientError as e:
@@ -172,29 +218,3 @@ def handler(event, context):
             "message": "Internal server error",
             "error": str(e)
         })
-
-
-def get_last_messages(conversation_id: str, limit: int = 4):
-    result = table.query(
-        KeyConditionExpression=(
-            Key("pk").eq(f"CONVERSATION#{conversation_id}") &
-            Key("sk").begins_with("MESSAGE#")
-        ),
-        ScanIndexForward=False,  # newest first
-        Limit=limit
-    )
-
-    items = result.get("Items", [])
-
-    # Reverse so it's oldest → newest
-    items.reverse()
-
-    return [
-        {
-            "messageId": item["messageId"],
-            "role": item["role"],
-            "content": item["content"],
-            "createdAt": item["createdAt"]
-        }
-        for item in items
-    ]
