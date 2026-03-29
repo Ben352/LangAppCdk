@@ -11,10 +11,10 @@ const env = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION,
 }
-
-const dataStack = new DataStack(app, "DataStack", { env });
-const authStack = new AuthStack(app, "AuthStack", { env });
 const secretStack = new SecretStack(app, "SecretStack", {env});
+const dataStack = new DataStack(app, "DataStack", { env });
+const authStack = new AuthStack(app, "AuthStack", { env, firebaseServiceAccountSecret:secretStack.firebaseServiceAccountSecret});
+
 const apiStack = new ApiStack(app, "ApiStack", {
   env,
   conversationsTable: dataStack.conversationsTable,
@@ -22,3 +22,6 @@ const apiStack = new ApiStack(app, "ApiStack", {
   authorizerFn: authStack.authorizerFunc,
   claudeSecret: secretStack.claudeSecret
 });
+
+authStack.addDependency(secretStack);
+apiStack.addDependency(secretStack);
