@@ -15,6 +15,7 @@ export interface ApiStackProps extends cdk.StackProps {
     userMetaDataTable: dynamodb.ITable;
     authorizerFn: lambda.IFunction;
     claudeSecret: secretsManager.ISecret;
+    accessKeyForFirebaseCloudFunctions: secretsManager.ISecret;
 }
 
 
@@ -26,6 +27,7 @@ export class ApiStack extends cdk.Stack {
 
         const commonEnv = {
             CONVERSATIONS_TABLE_NAME: props.conversationsTable.tableName,
+            USER_METADATA_TABLE_NAME: props.userMetaDataTable.tableName,
         };
 
         const listConversationsFunc = new PythonFunction(this, 'ListConversationsFunction', {

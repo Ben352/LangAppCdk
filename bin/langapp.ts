@@ -20,7 +20,8 @@ const apiStack = new ApiStack(app, "ApiStack", {
   conversationsTable: dataStack.conversationsTable,
   userMetaDataTable: dataStack.userMetaDataTable,
   authorizerFn: authStack.authorizerFunc,
-  claudeSecret: secretStack.claudeSecret
+  claudeSecret: secretStack.claudeSecret,
+  accessKeyForFirebaseCloudFunctions: secretStack.accessKeyForFirebaseCloudFunctions
 });
 
 authStack.addDependency(secretStack);
