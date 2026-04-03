@@ -6,6 +6,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 TABLE_NAME = os.environ["USER_METADATA_TABLE_NAME"]
+print("USER_METADATA_TABLE_NAME =", os.environ.get("USER_METADATA_TABLE_NAME"))
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
@@ -22,14 +23,7 @@ def load_secret_key() -> str:
     if not secret_string:
         raise RuntimeError("Firebase secret has no SecretString")
 
-    secret_json = json.loads(secret_string)
-
-    # expects secret like: {"key":"super-secret-value"}
-    secret_value = secret_json.get("key")
-    if not secret_value:
-        raise RuntimeError('Firebase secret JSON must contain a "key" field')
-
-    return secret_value
+    return secret_string
 
 
 def response(status_code: int, body: dict) -> dict:

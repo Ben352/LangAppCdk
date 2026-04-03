@@ -89,6 +89,24 @@ export class ApiStack extends cdk.Stack {
         props.userMetaDataTable.grantReadData(createConversationFunc);
 
 
+
+
+        const newUserCreated = new PythonFunction(this, 'NewUserFunction', {
+            entry: path.join(__dirname, '../lambda_functions/newUserSetup'),
+            index: 'app.py',
+            handler: 'handler',
+            runtime: lambda.Runtime.PYTHON_3_12,
+            memorySize: 256,
+            timeout: cdk.Duration.seconds(10),
+            environment: commonEnv,
+            logRetention: logs.RetentionDays.ONE_WEEK,
+        });
+        newUserCreated.addEnvironment("FIREBASE_SYNC_KEY",props.accessKeyForFirebaseCloudFunctions.secretArn);
+        props.userMetaDataTable.grantReadWriteData(newUserCreated);
+        props.accessKeyForFirebaseCloudFunctions.grantRead(newUserCreated);
+
+
+
         const requestAuthorizer = new authorizers.HttpLambdaAuthorizer(
             'LangChatRequestAuthorizer',
             props.authorizerFn,
@@ -148,6 +166,17 @@ export class ApiStack extends cdk.Stack {
             integration: new integrations.HttpLambdaIntegration(
                 'SendMessageIntegration',
                 sendMessageFunc
+            ),
+            authorizer: requestAuthorizer,
+        });
+
+
+        this.httpApi.addRoutes({
+            path: '/auth/newUser',
+            methods: [apigwv2.HttpMethod.POST],
+            integration: new integrations.HttpLambdaIntegration(
+                'NewUserIntegration',
+                newUserCreated
             ),
             authorizer: requestAuthorizer,
         });
