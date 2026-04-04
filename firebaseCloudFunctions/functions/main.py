@@ -3,25 +3,28 @@ from firebase_functions.options import set_global_options
 from firebase_admin import initialize_app
 import urllib.request
 import json
+import os
 
 set_global_options(max_instances=2)
 initialize_app()
 
-AWS_LAMBDA_URL = "https://"
-API_SECRET = "secret-key-here"
+AWS_LAMBDA_URL = os.environ.get("AWS_LAMBDA_URL")
+API_SECRET = os.environ.get("API_SECRET")
 
 @identity_fn.before_user_created()
 def sync_user_to_backend(event: identity_fn.AuthBlockingEvent) -> identity_fn.BeforeCreateResponse | None:
     user = event.data
 
+    provider_data = user.provider_data or []
+    
     payload = {
-        "uid": user.uid,
+        "userId": user.uid,                          # was "uid"
+        "name": provider_data[0].display_name if provider_data else None,  # was "display_name"
         "email": user.email,
-        "display_name": user.display_name,
+        "authProvider": provider_data[0].provider_id if provider_data else None,  # was "provider_id"
         "photo_url": user.photo_url,
         "phone_number": user.phone_number,
         "email_verified": user.email_verified,
-        "provider_id": user.provider_id,
         "provider_data": [
             {
                 "uid": p.uid,
@@ -29,7 +32,7 @@ def sync_user_to_backend(event: identity_fn.AuthBlockingEvent) -> identity_fn.Be
                 "display_name": p.display_name,
                 "provider_id": p.provider_id,
             }
-            for p in (user.provider_data or [])
+            for p in provider_data
         ],
     }
 
@@ -40,7 +43,7 @@ def sync_user_to_backend(event: identity_fn.AuthBlockingEvent) -> identity_fn.Be
             data=body,
             headers={
                 "Content-Type": "application/json",
-                "x-api-secret": API_SECRET,
+                "x-internal-secret": API_SECRET,
             },
             method="POST",
         )

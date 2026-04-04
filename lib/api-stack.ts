@@ -177,8 +177,7 @@ export class ApiStack extends cdk.Stack {
             integration: new integrations.HttpLambdaIntegration(
                 'NewUserIntegration',
                 newUserCreated
-            ),
-            authorizer: requestAuthorizer,
+            )
         });
 
         new cdk.CfnOutput(this, "ApiGatewayUrl", {
