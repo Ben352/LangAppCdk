@@ -6,6 +6,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 export class DataStack extends cdk.Stack {
     public readonly conversationsTable: dynamodb.Table;
     public readonly userMetaDataTable: dynamodb.Table;
+    public readonly promptTable: dynamodb.Table;
 
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
@@ -27,6 +28,22 @@ export class DataStack extends cdk.Stack {
         })
 
         this.userMetaDataTable = new dynamodb.Table(this, "UserMetaDataTable", {
+            partitionKey: {
+                name: "pk",
+                type: dynamodb.AttributeType.STRING
+            },
+            sortKey: {
+                name: "sk",
+                type: dynamodb.AttributeType.STRING,
+            },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: false
+            },
+            removalPolicy: cdk.RemovalPolicy.RETAIN
+        })
+
+        this.promptTable = new dynamodb.Table(this, "PromptTable", {
             partitionKey: {
                 name: "pk",
                 type: dynamodb.AttributeType.STRING

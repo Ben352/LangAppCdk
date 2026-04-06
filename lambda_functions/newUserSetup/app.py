@@ -37,12 +37,7 @@ def response(status_code: int, body: dict) -> dict:
 
 
 def now_iso() -> str:
-    return (
-        datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def handler(event, context):

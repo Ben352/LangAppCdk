@@ -2,18 +2,20 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
-from personas import get_persona
 from llm_client import generate_reply
 
 TABLE_NAME = os.environ["CONVERSATIONS_TABLE_NAME"]
+PROMPT_TABLE_NAME = os.environ["PROMPT_TABLE_NAME"]
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
+prompt_table = dynamodb.Table(PROMPT_TABLE_NAME)
 secrets_client = boto3.client("secretsmanager")
 
 
@@ -34,12 +36,7 @@ def response(status_code: int, body: dict) -> dict:
 
 
 def now_iso() -> str:
-    return (
-        datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def get_user_id(event: dict) -> str | None:
@@ -58,6 +55,22 @@ def get_conversation_id(event: dict) -> str | None:
 def get_body(event: dict) -> dict:
     raw_body = event.get("body") or "{}"
     return json.loads(raw_body)
+
+
+def to_python_number(value):
+    if isinstance(value, Decimal):
+        return int(value) if value % 1 == 0 else float(value)
+    return value
+
+
+def get_persona_from_ddb(persona_id: str) -> dict | None:
+    result = prompt_table.get_item(
+        Key={
+            "pk": f"PROMPT#{persona_id}",
+            "sk": "VERSION#1",
+        }
+    )
+    return result.get("Item")
 
 
 def get_last_messages(conversation_id: str, limit: int = 4):
@@ -115,7 +128,14 @@ def handler(event, context):
             return response(404, {"message": "Conversation not found"})
 
         persona_id = conversation_item["personaId"]
-        persona = get_persona(persona_id)
+        persona = get_persona_from_ddb(persona_id)
+        if not persona:
+            return response(500, {"message": f"Persona config not found for {persona_id}"})
+
+        system_prompt = persona["systemPrompt"]
+        provider_model = persona["providerModel"]
+        temperature = to_python_number(persona["temperature"])
+        max_tokens = to_python_number(persona["maxTokens"])
 
         last_messages = get_last_messages(conversation_id, limit=4)
         api_key = get_claude_api_key()
@@ -126,12 +146,12 @@ def handler(event, context):
         ]
 
         llm_result = generate_reply(
-            system_prompt=persona["system_prompt"],
+            system_prompt=system_prompt,
             messages=llm_messages,
             api_key=api_key,
-            provider_model=persona.get("provider_model", "anthropic/claude-3-haiku-20240307"),
-            temperature=persona.get("temperature", 0.7),
-            max_tokens=persona.get("max_tokens", 300),
+            provider_model=provider_model,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
 
         assistant_content = llm_result["content"]
@@ -212,6 +232,11 @@ def handler(event, context):
     except json.JSONDecodeError:
         return response(400, {
             "message": "Invalid JSON body"
+        })
+    except KeyError as e:
+        return response(500, {
+            "message": "Persona config is missing a required field",
+            "error": str(e)
         })
     except Exception as e:
         return response(500, {

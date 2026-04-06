@@ -13,6 +13,7 @@ import * as secretsManager from "aws-cdk-lib/aws-secretsmanager"
 export interface ApiStackProps extends cdk.StackProps {
     conversationsTable: dynamodb.ITable;
     userMetaDataTable: dynamodb.ITable;
+    promptTable: dynamodb.ITable;
     authorizerFn: lambda.IFunction;
     claudeSecret: secretsManager.ISecret;
     accessKeyForFirebaseCloudFunctions: secretsManager.ISecret;
@@ -34,6 +35,7 @@ export class ApiStack extends cdk.Stack {
         const commonEnv = {
             CONVERSATIONS_TABLE_NAME: props.conversationsTable.tableName,
             USER_METADATA_TABLE_NAME: props.userMetaDataTable.tableName,
+            PROMPT_TABLE_NAME: props.promptTable.tableName,
         };
 
         const listConversationsFunc = new PythonFunction(this, 'ListConversationsFunction', {
@@ -75,11 +77,12 @@ export class ApiStack extends cdk.Stack {
             logRetention: logs.RetentionDays.ONE_WEEK,
         });
         this.sendMessageFunc = sendMessageFunc;
-
-        props.claudeSecret.grantRead(sendMessageFunc);
+        
         sendMessageFunc.addEnvironment('ANTHROPIC_API_KEY', props.claudeSecret.secretArn);
+        props.claudeSecret.grantRead(sendMessageFunc);
         props.conversationsTable.grantReadWriteData(sendMessageFunc);
         props.userMetaDataTable.grantReadData(sendMessageFunc);
+        props.promptTable.grantReadData(sendMessageFunc);
 
         const createConversationFunc = new PythonFunction(this, 'CreateConversationFunction', {
             entry: path.join(__dirname, '../lambda_functions/createConversation'),
@@ -95,6 +98,7 @@ export class ApiStack extends cdk.Stack {
 
         props.conversationsTable.grantReadWriteData(createConversationFunc);
         props.userMetaDataTable.grantReadData(createConversationFunc);
+        props.promptTable.grantReadData(createConversationFunc);
 
         const newUserCreated = new PythonFunction(this, 'NewUserFunction', {
             entry: path.join(__dirname, '../lambda_functions/newUserSetup'),

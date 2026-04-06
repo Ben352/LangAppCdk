@@ -20,6 +20,7 @@ const apiStack = new ApiStack(app, "ApiStack", {
   env,
   conversationsTable: dataStack.conversationsTable,
   userMetaDataTable: dataStack.userMetaDataTable,
+  promptTable: dataStack.promptTable,
   authorizerFn: authStack.authorizerFunc,
   claudeSecret: secretStack.claudeSecret,
   accessKeyForFirebaseCloudFunctions: secretStack.accessKeyForFirebaseCloudFunctions

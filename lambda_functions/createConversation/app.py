@@ -2,15 +2,17 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import boto3
 from botocore.exceptions import ClientError
-from personas import get_persona
 
 TABLE_NAME = os.environ["CONVERSATIONS_TABLE_NAME"]
+PROMPT_TABLE_NAME = os.environ["PROMPT_TABLE_NAME"]
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
+prompt_table = dynamodb.Table(PROMPT_TABLE_NAME)
 
 
 def response(status_code: int, body: dict) -> dict:
@@ -33,12 +35,20 @@ def get_user_id(event: dict) -> str | None:
 
 
 def now_iso() -> str:
-    return (
-        datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def get_persona_from_ddb(persona_id: str) -> dict | None:
+    result = prompt_table.get_item(
+        Key={
+            "pk": f"PROMPT#{persona_id}",
+            "sk": "VERSION#1",
+        }
     )
+    item = result.get("Item")
+    if not item:
+        return None
+    return item
 
 
 def handler(event, context):
@@ -53,8 +63,11 @@ def handler(event, context):
         if not persona_id:
             return response(400, {"message": "personaId is required"})
 
-        persona = get_persona(persona_id=persona_id)
-        starter_message = persona.get("starter_message", "Ciao! Come stai?")
+        persona = get_persona_from_ddb(persona_id)
+        if not persona:
+            return response(400, {"message": f"Unknown personaId: {persona_id}"})
+
+        starter_message = persona.get("starterMessage", "Ciao! Come stai?")
 
         title = body.get("title", "").strip()
         if not title:
@@ -63,7 +76,6 @@ def handler(event, context):
         conversation_id = str(uuid.uuid4())
         created_at = now_iso()
 
-        # 1. Create conversation metadata item
         conversation_item = {
             "pk": f"USER#{user_id}",
             "sk": f"CONVERSATION#{conversation_id}",
@@ -83,7 +95,6 @@ def handler(event, context):
             ConditionExpression="attribute_not_exists(pk) AND attribute_not_exists(sk)"
         )
 
-        # 2. Create initial assistant message item
         assistant_message_id = str(uuid.uuid4())
         assistant_message_item = {
             "pk": f"CONVERSATION#{conversation_id}",
@@ -99,7 +110,6 @@ def handler(event, context):
 
         table.put_item(Item=assistant_message_item)
 
-        # 3. Return the created conversation plus first message
         return response(201, {
             "conversationId": conversation_id,
             "personaId": persona_id,
