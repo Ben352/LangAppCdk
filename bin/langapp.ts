@@ -4,6 +4,7 @@ import { DataStack } from "../lib/data-stack";
 import { AuthStack } from "../lib/auth-stack";
 import { ApiStack } from "../lib/api-stack";
 import { SecretStack } from "../lib/secretsStack";
+import { ObservabilityStack } from "../lib/observability-stack";
 
 const app = new cdk.App();
 
@@ -24,5 +25,17 @@ const apiStack = new ApiStack(app, "ApiStack", {
   accessKeyForFirebaseCloudFunctions: secretStack.accessKeyForFirebaseCloudFunctions
 });
 
+const observabilityStack = new ObservabilityStack(app, "ObservabilityStack", {
+  env,
+  createConversationFunc: apiStack.createConversationFunc,
+  listConversationsFunc: apiStack.listConversationsFunc,
+  getConversationFunc: apiStack.getConversationFunc,
+  sendMessageFunc: apiStack.sendMessageFunc,
+  newUserFunc: apiStack.newUserFunc,
+  authorizerFunc: authStack.authorizerFunc,
+});
+
 authStack.addDependency(secretStack);
 apiStack.addDependency(secretStack);
+observabilityStack.addDependency(apiStack);
+observabilityStack.addDependency(authStack);

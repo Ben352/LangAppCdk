@@ -22,6 +22,12 @@ export interface ApiStackProps extends cdk.StackProps {
 export class ApiStack extends cdk.Stack {
     public readonly httpApi: apigwv2.HttpApi;
 
+    public readonly listConversationsFunc: lambda.IFunction;
+    public readonly getConversationFunc: lambda.IFunction;
+    public readonly sendMessageFunc: lambda.IFunction;
+    public readonly createConversationFunc: lambda.IFunction;
+    public readonly newUserFunc: lambda.IFunction;
+
     constructor(scope: Construct, id: string, props: ApiStackProps) {
         super(scope, id, props);
 
@@ -40,9 +46,9 @@ export class ApiStack extends cdk.Stack {
             environment: commonEnv,
             logRetention: logs.RetentionDays.ONE_WEEK,
         });
+        this.listConversationsFunc = listConversationsFunc;
 
         props.conversationsTable.grantReadData(listConversationsFunc);
-
 
         const getConversationFunc = new PythonFunction(this, 'GetConversationFunction', {
             entry: path.join(__dirname, '../lambda_functions/getConversation'),
@@ -54,6 +60,7 @@ export class ApiStack extends cdk.Stack {
             environment: commonEnv,
             logRetention: logs.RetentionDays.ONE_WEEK,
         });
+        this.getConversationFunc = getConversationFunc;
 
         props.conversationsTable.grantReadData(getConversationFunc);
 
@@ -67,10 +74,10 @@ export class ApiStack extends cdk.Stack {
             environment: commonEnv,
             logRetention: logs.RetentionDays.ONE_WEEK,
         });
+        this.sendMessageFunc = sendMessageFunc;
+
         props.claudeSecret.grantRead(sendMessageFunc);
-
-        sendMessageFunc.addEnvironment('ANTHROPIC_API_KEY', props.claudeSecret.secretArn);  
-
+        sendMessageFunc.addEnvironment('ANTHROPIC_API_KEY', props.claudeSecret.secretArn);
         props.conversationsTable.grantReadWriteData(sendMessageFunc);
         props.userMetaDataTable.grantReadData(sendMessageFunc);
 
@@ -84,12 +91,10 @@ export class ApiStack extends cdk.Stack {
             environment: commonEnv,
             logRetention: logs.RetentionDays.ONE_WEEK,
         });
+        this.createConversationFunc = createConversationFunc;
 
         props.conversationsTable.grantReadWriteData(createConversationFunc);
         props.userMetaDataTable.grantReadData(createConversationFunc);
-
-
-
 
         const newUserCreated = new PythonFunction(this, 'NewUserFunction', {
             entry: path.join(__dirname, '../lambda_functions/newUserSetup'),
@@ -101,11 +106,11 @@ export class ApiStack extends cdk.Stack {
             environment: commonEnv,
             logRetention: logs.RetentionDays.ONE_WEEK,
         });
-        newUserCreated.addEnvironment("FIREBASE_SYNC_KEY",props.accessKeyForFirebaseCloudFunctions.secretArn);
+        this.newUserFunc = newUserCreated;
+
+        newUserCreated.addEnvironment("FIREBASE_SYNC_KEY", props.accessKeyForFirebaseCloudFunctions.secretArn);
         props.userMetaDataTable.grantReadWriteData(newUserCreated);
         props.accessKeyForFirebaseCloudFunctions.grantRead(newUserCreated);
-
-
 
         const requestAuthorizer = new authorizers.HttpLambdaAuthorizer(
             'LangChatRequestAuthorizer',
@@ -120,14 +125,14 @@ export class ApiStack extends cdk.Stack {
             apiName: 'lang-chat-http-api',
             createDefaultStage: true,
             corsPreflight: {
-        allowOrigins: ["http://localhost:5173"],
-        allowHeaders: ["Authorization", "Content-Type"],
-        allowMethods: [
-        apigwv2.CorsHttpMethod.GET,
-        apigwv2.CorsHttpMethod.POST,
-        apigwv2.CorsHttpMethod.OPTIONS,
-    ],
-  },
+                allowOrigins: ["http://localhost:5173"],
+                allowHeaders: ["Authorization", "Content-Type"],
+                allowMethods: [
+                    apigwv2.CorsHttpMethod.GET,
+                    apigwv2.CorsHttpMethod.POST,
+                    apigwv2.CorsHttpMethod.OPTIONS,
+                ],
+            },
         });
 
         this.httpApi.addRoutes({
@@ -169,7 +174,6 @@ export class ApiStack extends cdk.Stack {
             ),
             authorizer: requestAuthorizer,
         });
-
 
         this.httpApi.addRoutes({
             path: '/auth/newUser',
