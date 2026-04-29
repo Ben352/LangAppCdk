@@ -67,8 +67,7 @@ async function apiFetch({ apiUrl, token, path, method = "GET", body }) {
 
 export default function ChatPage() {
   const [apiUrl, setApiUrl] = useState(
-    localStorage.getItem(STORAGE_KEYS.apiUrl) ||
-      ""
+    localStorage.getItem(STORAGE_KEYS.apiUrl)
   );
   const [token, setToken] = useState(
     localStorage.getItem(STORAGE_KEYS.token)
