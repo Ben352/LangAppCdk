@@ -10,8 +10,6 @@ from firebase_admin import auth, credentials
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-TEST_BEARER_TOKEN = "Bearer superSecretKetUntilISetUpJWT"
-
 _secrets_client = boto3.client("secretsmanager")
 _firebase_app = None
 
@@ -55,20 +53,6 @@ def get_firebase_app():
     cred = credentials.Certificate(service_account_info)
     _firebase_app = firebase_admin.initialize_app(cred)
     return _firebase_app
-
-
-def authorize_with_test_token(auth_header: str | None) -> dict | None:
-    if auth_header == TEST_BEARER_TOKEN:
-        logger.warning("Authorizer accepted request via TEST TOKEN bypass")
-        return {
-            "isAuthorized": True,
-            "context": {
-                "userId": "123",
-                "authMode": "test-token",
-            },
-        }
-
-    return None
 
 
 def authorize_with_firebase(auth_header: str | None) -> dict | None:
@@ -117,12 +101,6 @@ def authorize_with_firebase(auth_header: str | None) -> dict | None:
 def handler(event, context):
     auth_header = get_authorization_header(event)
 
-    # 1) Keep existing hardcoded testing token alive
-    test_auth_result = authorize_with_test_token(auth_header)
-    if test_auth_result is not None:
-        return test_auth_result
-
-    # 2) Shadow mode: also accept real Firebase auth
     firebase_auth_result = authorize_with_firebase(auth_header)
     if firebase_auth_result is not None:
         return firebase_auth_result

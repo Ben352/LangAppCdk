@@ -6,8 +6,10 @@ Set these once to simplify all requests:
 
 ```bash
 export API_URL="https://w88sqtf2y9.execute-api.eu-central-1.amazonaws.com"
-export TOKEN="Bearer superSecretKetUntilISetUpJWT"
+export TOKEN="Bearer <firebase-id-token>"
 ```
+
+Get a Firebase ID token from the Firebase Auth REST API or your frontend's `getIdToken()` call.
 
 ---
 
@@ -91,15 +93,18 @@ curl -X POST \
 
 ## User Sync
 
-```
-curl -X POST   -H "Authorization: $TOKEN" \
-  -H "Content-Type: application/json" -H "x-internal-secret: replace"   -d '{
-    "userId": "123",
+This endpoint is called automatically by the Firebase Cloud Function on signup. The `x-internal-secret` header value must match the secret stored in Secrets Manager.
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "x-internal-secret: <firebase-sync-secret>" \
+  -d '{
+    "userId": "<firebase-uid>",
     "name": "John",
     "email": "john@example.com",
     "authProvider": "google"
   }' $API_URL/auth/newUser
-
 ```
 
 ## Testing

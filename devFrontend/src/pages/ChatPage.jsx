@@ -71,8 +71,7 @@ export default function ChatPage() {
       "https://w88sqtf2y9.execute-api.eu-central-1.amazonaws.com"
   );
   const [token, setToken] = useState(
-    localStorage.getItem(STORAGE_KEYS.token) ||
-      "Bearer superSecretKetUntilISetUpJWT"
+    localStorage.getItem(STORAGE_KEYS.token)
   );
 
   const [conversations, setConversations] = useState([]);
