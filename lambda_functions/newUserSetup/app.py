@@ -81,7 +81,9 @@ def handler(event, context):
                     authProvider = :authProvider,
                     updatedAt = :updatedAt,
                     createdAt = if_not_exists(createdAt, :createdAt),
-                    isActivated = if_not_exists(isActivated, :isActivated)
+                    isActivated = if_not_exists(isActivated, :isActivated),
+                    tokenBudgetTotal = if_not_exists(tokenBudgetTotal, :tokenBudgetTotal),
+                    tokensUsed = if_not_exists(tokensUsed, :tokensUsed)
             """,
             ExpressionAttributeNames={
                 "#name": "name"
@@ -93,7 +95,9 @@ def handler(event, context):
                 ":authProvider": auth_provider,
                 ":updatedAt": now,
                 ":createdAt": now,
-                ":isActivated": False
+                ":isActivated": False,
+                ":tokenBudgetTotal": 100000,
+                ":tokensUsed": 0,
             }
         )
 
