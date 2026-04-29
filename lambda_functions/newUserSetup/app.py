@@ -6,7 +6,6 @@ import boto3
 from botocore.exceptions import ClientError
 
 TABLE_NAME = os.environ["USER_METADATA_TABLE_NAME"]
-print("USER_METADATA_TABLE_NAME =", os.environ.get("USER_METADATA_TABLE_NAME"))
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
