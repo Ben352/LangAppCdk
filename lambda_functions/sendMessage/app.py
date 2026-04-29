@@ -75,7 +75,7 @@ def get_persona_from_ddb(persona_id: str) -> dict | None:
     return result.get("Item")
 
 
-def get_token_budget(user_id: str) -> tuple[int, int]:
+def get_user_metadata(user_id: str) -> tuple[bool, int, int]:
     result = user_metadata_table.get_item(
         Key={
             "pk": f"USER#{user_id}",
@@ -84,8 +84,9 @@ def get_token_budget(user_id: str) -> tuple[int, int]:
     )
     item = result.get("Item")
     if not item or "tokenBudgetTotal" not in item or "tokensUsed" not in item:
-        raise ValueError(f"Token budget not initialised for user {user_id}")
-    return to_python_number(item["tokenBudgetTotal"]), to_python_number(item["tokensUsed"])
+        raise ValueError(f"User metadata not initialised for user {user_id}")
+    is_activated = bool(item.get("isActivated", False))
+    return is_activated, to_python_number(item["tokenBudgetTotal"]), to_python_number(item["tokensUsed"])
 
 
 def get_last_messages(conversation_id: str, limit: int = 4):
@@ -152,7 +153,9 @@ def handler(event, context):
         temperature = to_python_number(persona["temperature"])
         max_tokens = to_python_number(persona["maxTokens"])
 
-        budget_total, tokens_used = get_token_budget(user_id)
+        is_activated, budget_total, tokens_used = get_user_metadata(user_id)
+        if not is_activated:
+            return response(403, {"message": "Account not activated"})
         if budget_total - tokens_used < max_tokens:
             return response(429, {"message": "Token budget exceeded"})
 
