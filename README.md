@@ -29,6 +29,14 @@ Personas (system prompt, model, temperature, token limits) are stored in DynamoD
 - Firebase project with Authentication enabled
 - Anthropic API key
 
+## Future work
+
+- Monthly token budget resets
+- Fix token budget race condition (concurrent requests can both pass the budget check before either deducts)
+- Rate limiting at API Gateway level
+- Increase test coverage
+- Look into CI/CD options
+
 ---
 
 See [endpoints.md](endpoints.md) for the full API reference.
