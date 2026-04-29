@@ -103,18 +103,40 @@ Replace `<UserMetaDataTable>` with the actual table name from the CDK output and
 
 ## Secrets Manager commands
 
+Three secrets must be populated after deploying the CDK stack.
+
 ```bash
 # List secrets
 aws secretsmanager list-secrets --region eu-central-1
+```
 
-# Set Claude API key
+**1. Claude API key**
+
+```bash
 aws secretsmanager put-secret-value \
   --secret-id claude-api-key \
-  --secret-string "sk-your-real-api-key" \
+  --secret-string "sk-ant-your-real-api-key" \
   --region eu-central-1
+```
 
-# Verify
-aws secretsmanager get-secret-value \
-  --secret-id claude-api-key \
+**2. Firebase service account**
+
+Download the service account JSON from the Firebase console (Project Settings → Service Accounts → Generate new private key) and save it to `configs/firebase_admin.json` (gitignored). Then upload it:
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id firebase-service-account \
+  --secret-string file://configs/firebase_admin.json \
+  --region eu-central-1
+```
+
+**3. Internal secret (Cloud Function → backend)**
+
+Choose any strong random string. This must match `API_SECRET` in the Firebase Cloud Function environment.
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id access-key-for-firebase-cloud-functions \
+  --secret-string "your-strong-random-secret" \
   --region eu-central-1
 ```
