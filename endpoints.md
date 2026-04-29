@@ -1,5 +1,5 @@
 ```bash
-export API_URL="https://w88sqtf2y9.execute-api.eu-central-1.amazonaws.com"
+export API_URL="<your-api-url>"
 export TOKEN="Bearer <firebase-id-token>"
 ```
 

@@ -43,6 +43,29 @@ See [endpoints.md](endpoints.md) for the full API reference.
 
 ---
 
+## Firebase Cloud Function setup
+
+The Firebase Cloud Function syncs new users to the backend on signup. It reads two environment variables that must be set in the Firebase project:
+
+- `AWS_LAMBDA_URL` — the full URL of the `/auth/newUser` endpoint
+- `API_SECRET` — the internal secret stored in Secrets Manager (used to authenticate the call)
+
+Set them with:
+
+```bash
+firebase functions:secrets:set AWS_LAMBDA_URL
+firebase functions:secrets:set API_SECRET
+```
+
+After deploying the CDK stack, get the new API URL from the CDK output and update `AWS_LAMBDA_URL`. Then redeploy the Cloud Function:
+
+```bash
+cd firebaseCloudFunctions
+firebase deploy --only functions
+```
+
+---
+
 ## Testing
 
 ```bash
