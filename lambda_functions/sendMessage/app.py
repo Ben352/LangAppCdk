@@ -12,10 +12,12 @@ from llm_client import generate_reply
 
 TABLE_NAME = os.environ["CONVERSATIONS_TABLE_NAME"]
 PROMPT_TABLE_NAME = os.environ["PROMPT_TABLE_NAME"]
+USER_METADATA_TABLE_NAME = os.environ["USER_METADATA_TABLE_NAME"]
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
 prompt_table = dynamodb.Table(PROMPT_TABLE_NAME)
+user_metadata_table = dynamodb.Table(USER_METADATA_TABLE_NAME)
 secrets_client = boto3.client("secretsmanager")
 
 
@@ -71,6 +73,19 @@ def get_persona_from_ddb(persona_id: str) -> dict | None:
         }
     )
     return result.get("Item")
+
+
+def get_token_budget(user_id: str) -> tuple[int, int]:
+    result = user_metadata_table.get_item(
+        Key={
+            "pk": f"USER#{user_id}",
+            "sk": "METADATA",
+        }
+    )
+    item = result.get("Item")
+    if not item or "tokenBudgetTotal" not in item or "tokensUsed" not in item:
+        raise ValueError(f"Token budget not initialised for user {user_id}")
+    return to_python_number(item["tokenBudgetTotal"]), to_python_number(item["tokensUsed"])
 
 
 def get_last_messages(conversation_id: str, limit: int = 4):
@@ -136,6 +151,10 @@ def handler(event, context):
         provider_model = persona["providerModel"]
         temperature = to_python_number(persona["temperature"])
         max_tokens = to_python_number(persona["maxTokens"])
+
+        budget_total, tokens_used = get_token_budget(user_id)
+        if budget_total - tokens_used < max_tokens:
+            return response(429, {"message": "Token budget exceeded"})
 
         last_messages = get_last_messages(conversation_id, limit=4)
         api_key = get_claude_api_key()
@@ -205,6 +224,16 @@ def handler(event, context):
                 ":lastMessageAt": assistant_created_at,
                 ":lastMessagePreview": assistant_content
             }
+        )
+
+        tokens_consumed = llm_result["usage"]["total_tokens"]
+        user_metadata_table.update_item(
+            Key={
+                "pk": f"USER#{user_id}",
+                "sk": "METADATA",
+            },
+            UpdateExpression="ADD tokensUsed :consumed",
+            ExpressionAttributeValues={":consumed": tokens_consumed},
         )
 
         return response(201, {
