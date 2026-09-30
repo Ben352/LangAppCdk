@@ -73,6 +73,12 @@ source venv/bin/activate
 pytest tests -v
 ```
 
+This runs fully mocked — no network calls. `tests/test_llm_client_integration.py` makes a real call to Anthropic and is excluded by default (see `pytest.ini`); run it explicitly with a real `ANTHROPIC_API_KEY` set:
+
+```bash
+pytest tests -v -m integration
+```
+
 ---
 
 ## CDK commands

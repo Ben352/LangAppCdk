@@ -2,14 +2,15 @@ import os
 
 import pytest
 
-from lambda_functions.shared.llm_client import generate_reply
+from lambda_functions.sendMessage.llm_client import generate_reply
 
 
 pytestmark = pytest.mark.integration
 
 
 def test_generate_reply_real_provider():
-    if not os.getenv("ANTHROPIC_API_KEY"):
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
         pytest.skip("ANTHROPIC_API_KEY not set")
 
     result = generate_reply(
@@ -23,6 +24,7 @@ def test_generate_reply_real_provider():
                 "content": "Return the exact required test string."
             }
         ],
+        api_key=api_key,
         temperature=0.0,
         max_tokens=20,
     )

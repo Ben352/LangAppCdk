@@ -5,7 +5,7 @@ def generate_reply(
     system_prompt: str,
     messages: list[dict],
     api_key: str,
-    provider_model: str = "claude-3-haiku-20240307",
+    provider_model: str = "anthropic/claude-3-haiku-20240307",
     temperature: float = 0.7,
     max_tokens: int = 300,
 ) -> dict:
