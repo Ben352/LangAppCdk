@@ -89,6 +89,48 @@ def get_user_metadata(user_id: str) -> tuple[bool, int, int]:
     return is_activated, to_python_number(item["tokenBudgetTotal"]), to_python_number(item["tokensUsed"])
 
 
+def reserve_token_budget(user_id: str, budget_total: int, max_tokens: int) -> None:
+    """Atomically reserve max_tokens against the user's remaining budget.
+
+    DynamoDB condition expressions can't do arithmetic on two attributes
+    (e.g. tokenBudgetTotal - tokensUsed), so instead of comparing a
+    reservation-time snapshot in Python, we push the comparison into the
+    ConditionExpression against the live tokensUsed value. tokenBudgetTotal
+    isn't mutated by concurrent sendMessage calls (only tokensUsed is), so
+    it's safe to compute the threshold from the value we already read.
+    Raises botocore.exceptions.ClientError (ConditionalCheckFailedException)
+    if the live tokensUsed exceeds the threshold at write time.
+    """
+    threshold = budget_total - max_tokens
+    user_metadata_table.update_item(
+        Key={
+            "pk": f"USER#{user_id}",
+            "sk": "METADATA",
+        },
+        UpdateExpression="ADD tokensUsed :max_tokens",
+        ConditionExpression="tokensUsed <= :threshold",
+        ExpressionAttributeValues={
+            ":max_tokens": max_tokens,
+            ":threshold": threshold,
+        },
+    )
+
+
+def reconcile_token_usage(user_id: str, reserved: int, actual: int) -> None:
+    """True up the reservation to what the LLM call actually consumed."""
+    adjustment = actual - reserved
+    if adjustment == 0:
+        return
+    user_metadata_table.update_item(
+        Key={
+            "pk": f"USER#{user_id}",
+            "sk": "METADATA",
+        },
+        UpdateExpression="ADD tokensUsed :adjustment",
+        ExpressionAttributeValues={":adjustment": adjustment},
+    )
+
+
 def get_last_messages(conversation_id: str, limit: int = 4):
     result = table.query(
         KeyConditionExpression=(
@@ -153,11 +195,16 @@ def handler(event, context):
         temperature = to_python_number(persona["temperature"])
         max_tokens = to_python_number(persona["maxTokens"])
 
-        is_activated, budget_total, tokens_used = get_user_metadata(user_id)
+        is_activated, budget_total, _ = get_user_metadata(user_id)
         if not is_activated:
             return response(403, {"message": "Account not activated"})
-        if budget_total - tokens_used < max_tokens:
-            return response(429, {"message": "Token budget exceeded"})
+
+        try:
+            reserve_token_budget(user_id, budget_total, max_tokens)
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
+                return response(429, {"message": "Token budget exceeded"})
+            raise
 
         last_messages = get_last_messages(conversation_id, limit=4)
         api_key = get_claude_api_key()
@@ -230,14 +277,7 @@ def handler(event, context):
         )
 
         tokens_consumed = llm_result["usage"]["total_tokens"]
-        user_metadata_table.update_item(
-            Key={
-                "pk": f"USER#{user_id}",
-                "sk": "METADATA",
-            },
-            UpdateExpression="ADD tokensUsed :consumed",
-            ExpressionAttributeValues={":consumed": tokens_consumed},
-        )
+        reconcile_token_usage(user_id, reserved=max_tokens, actual=tokens_consumed)
 
         return response(201, {
             "conversationId": conversation_id,

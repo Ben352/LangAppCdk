@@ -4,6 +4,8 @@ import sys
 from decimal import Decimal
 from unittest.mock import patch
 
+from botocore.exceptions import ClientError
+
 os.environ["CONVERSATIONS_TABLE_NAME"] = "test-conversations"
 os.environ["PROMPT_TABLE_NAME"] = "test-prompts"
 os.environ["USER_METADATA_TABLE_NAME"] = "test-user-metadata"
@@ -121,15 +123,22 @@ def test_account_not_activated(mock_table, mock_prompt_table, mock_user_metadata
 def test_token_budget_exceeded(mock_table, mock_prompt_table, mock_user_metadata_table):
     mock_table.get_item.return_value = {"Item": FAKE_CONVERSATION}
     mock_prompt_table.get_item.return_value = {"Item": FAKE_PERSONA}
-    # 99500 used, 100000 total → 500 remaining < 1000 max_tokens
+    # 99500 used, 100000 total → 500 remaining < 1000 max_tokens.
+    # The reservation is an atomic conditional update, so DynamoDB itself
+    # rejects it rather than Python comparing stale get_item values.
     mock_user_metadata_table.get_item.return_value = {
         "Item": {**FAKE_USER_METADATA, "tokensUsed": Decimal("99500")}
     }
+    mock_user_metadata_table.update_item.side_effect = ClientError(
+        {"Error": {"Code": "ConditionalCheckFailedException", "Message": "check failed"}},
+        "UpdateItem",
+    )
 
     result = handler(make_event(), None)
 
     assert result["statusCode"] == 429
     assert json.loads(result["body"])["message"] == "Token budget exceeded"
+    mock_table.put_item.assert_not_called()
 
 
 @patch("lambda_functions.sendMessage.app.user_metadata_table")
@@ -171,4 +180,41 @@ def test_happy_path(mock_table, mock_prompt_table, mock_user_metadata_table, moc
 
     assert mock_table.put_item.call_count == 2
     mock_table.update_item.assert_called_once()
-    mock_user_metadata_table.update_item.assert_called_once()
+
+    # One atomic write to reserve max_tokens (1000) up front, one to true
+    # up the ledger to the 150 tokens actually consumed.
+    assert mock_user_metadata_table.update_item.call_count == 2
+    reserve_call, reconcile_call = mock_user_metadata_table.update_item.call_args_list
+    assert reserve_call.kwargs["ExpressionAttributeValues"][":max_tokens"] == 1000
+    assert reconcile_call.kwargs["ExpressionAttributeValues"][":adjustment"] == -850
+
+
+@patch("lambda_functions.sendMessage.app.user_metadata_table")
+@patch("lambda_functions.sendMessage.app.prompt_table")
+@patch("lambda_functions.sendMessage.app.table")
+def test_reserve_token_budget_race_is_atomic(mock_table, mock_prompt_table, mock_user_metadata_table):
+    """Two concurrent requests both read the same stale tokensUsed, but only
+    one may win the atomic conditional reservation; the loser gets 429
+    without having called the LLM or persisted any messages."""
+    mock_table.get_item.return_value = {"Item": FAKE_CONVERSATION}
+    mock_prompt_table.get_item.return_value = {"Item": FAKE_PERSONA}
+    # Both requests see the same pre-race snapshot: 99200 used, 100000
+    # total → 800 remaining, enough for one 1000-max_tokens reservation
+    # but not two.
+    mock_user_metadata_table.get_item.return_value = {
+        "Item": {**FAKE_USER_METADATA, "tokensUsed": Decimal("99200")}
+    }
+    mock_user_metadata_table.update_item.side_effect = [
+        None,  # first request's reservation succeeds
+        ClientError(
+            {"Error": {"Code": "ConditionalCheckFailedException", "Message": "check failed"}},
+            "UpdateItem",
+        ),  # second request's reservation is rejected atomically
+    ]
+
+    first_result = handler(make_event(), None)
+    second_result = handler(make_event(), None)
+
+    assert first_result["statusCode"] != 429
+    assert second_result["statusCode"] == 429
+    assert json.loads(second_result["body"])["message"] == "Token budget exceeded"
